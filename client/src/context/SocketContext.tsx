@@ -28,6 +28,7 @@ export const useSocket = (): SocketContextType => {
 }
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+console.log('Connecting to backend:', BACKEND_URL);
 
 const SocketProvider = ({ children }: { children: ReactNode }) => {
     const {
@@ -41,7 +42,11 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
     const socket: Socket = useMemo(
         () =>
             io(BACKEND_URL, {
-                reconnectionAttempts: 2,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                timeout: 20000,
+                transports: ['websocket', 'polling'],
+                autoConnect: true,
             }),
         [],
     )
@@ -49,10 +54,10 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
     const handleError = useCallback(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (err: any) => {
-            console.log("socket error", err)
+            console.error("Socket connection error:", err);
             setStatus(USER_STATUS.CONNECTION_FAILED)
             toast.dismiss()
-            toast.error("Failed to connect to the server")
+            toast.error("Failed to connect to the server. Please try again.")
         },
         [setStatus],
     )
