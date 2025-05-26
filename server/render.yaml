@@ -11,5 +11,12 @@ services:
         value: 10000
       - key: CLIENT_URL
         value: https://code-sync-client.vercel.app
+      - key: CORS_ORIGIN
+        value: https://code-sync-client.vercel.app
     healthCheckPath: /health
-    autoDeploy: true 
+    autoDeploy: true
+    plan: free
+    disk:
+      name: code-sync-data
+      mountPath: /data
+      sizeGB: 1 

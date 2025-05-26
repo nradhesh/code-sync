@@ -2,7 +2,7 @@
     "rewrites": [
         {"source": "/(.*)", "destination": "/index.html"}
     ],
-    "buildCommand": "npm run build",
+    "buildCommand": "npm install && npm run build",
     "outputDirectory": "dist",
     "framework": "vite",
     "headers": [
@@ -12,8 +12,15 @@
                 {
                     "key": "Cache-Control",
                     "value": "public, max-age=0, must-revalidate"
+                },
+                {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "*"
                 }
             ]
         }
-    ]
+    ],
+    "env": {
+        "VITE_BACKEND_URL": "https://code-sync-backend.onrender.com"
+    }
 }
