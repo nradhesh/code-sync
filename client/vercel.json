@@ -21,6 +21,6 @@
         }
     ],
     "env": {
-        "VITE_BACKEND_URL": "https://code-sync-backend.up.railway.app"
+        "VITE_BACKEND_URL": "https://code-sync-production-5d6d.up.railway.app"
     }
 }
