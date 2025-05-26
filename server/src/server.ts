@@ -260,7 +260,14 @@ io.on("connection", (socket) => {
 	})
 })
 
-const PORT = process.env.PORT || 10000
+// Add debugging for environment variables
+console.log('Environment variables:', {
+	PORT: process.env.PORT,
+	NODE_ENV: process.env.NODE_ENV
+});
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 10000;
+console.log('Using port:', PORT);
 
 app.get("/", (req: Request, res: Response) => {
 	// Send the index.html file
