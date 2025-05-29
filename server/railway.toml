@@ -13,4 +13,5 @@ maxRetries = 3
 NODE_ENV = "production"
 PORT = "10000"
 CLIENT_URL = "https://code-sync-client.vercel.app"
-CORS_ORIGIN = "https://code-sync-client.vercel.app" 
+CORS_ORIGIN = "https://code-sync-client.vercel.app"
+MONGODB_URI = "mongodb+srv://radheshshetty0407:%23Shetty222@cluster0.nvc9ek7.mongodb.net/chat-app?retryWrites=true&w=majority" 

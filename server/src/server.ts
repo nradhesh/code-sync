@@ -6,8 +6,13 @@ import { SocketEvent, SocketId } from "./types/socket"
 import { USER_CONNECTION_STATUS, User } from "./types/user"
 import { Server } from "socket.io"
 import path from "path"
+import { connectDB } from "./config/db"
+import { UserSession } from "./models/UserSession"
 
 dotenv.config()
+
+// Connect to MongoDB
+connectDB()
 
 const app = express()
 
@@ -29,69 +34,95 @@ const io = new Server(server, {
 let userSocketMap: User[] = []
 
 // Function to get all users in a room
-function getUsersInRoom(roomId: string): User[] {
-	return userSocketMap.filter((user) => user.roomId == roomId)
+async function getUsersInRoom(roomId: string): Promise<User[]> {
+	const users = await UserSession.find({ roomId }).lean()
+	return users.map(user => ({
+		username: user.username,
+		roomId: user.roomId,
+		status: user.status,
+		cursorPosition: user.cursorPosition,
+		typing: user.typing,
+		currentFile: user.currentFile,
+		socketId: user.socketId
+	}))
 }
 
 // Function to get room id by socket id
-function getRoomId(socketId: SocketId): string | null {
-	const roomId = userSocketMap.find(
-		(user) => user.socketId === socketId
-	)?.roomId
-
-	if (!roomId) {
+async function getRoomId(socketId: SocketId): Promise<string | null> {
+	const user = await UserSession.findOne({ socketId }).lean()
+	if (!user) {
 		console.error("Room ID is undefined for socket ID:", socketId)
 		return null
 	}
-	return roomId
+	return user.roomId
 }
 
-function getUserBySocketId(socketId: SocketId): User | null {
-	const user = userSocketMap.find((user) => user.socketId === socketId)
+async function getUserBySocketId(socketId: SocketId): Promise<User | null> {
+	const user = await UserSession.findOne({ socketId }).lean()
 	if (!user) {
 		console.error("User not found for socket ID:", socketId)
 		return null
 	}
-	return user
+	return {
+		username: user.username,
+		roomId: user.roomId,
+		status: user.status,
+		cursorPosition: user.cursorPosition,
+		typing: user.typing,
+		currentFile: user.currentFile,
+		socketId: user.socketId
+	}
 }
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
 	// Handle user actions
-	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username }) => {
-		// Check is username exist in the room
-		const isUsernameExist = getUsersInRoom(roomId).filter(
-			(u) => u.username === username
-		)
-		if (isUsernameExist.length > 0) {
-			io.to(socket.id).emit(SocketEvent.USERNAME_EXISTS)
-			return
-		}
+	socket.on(SocketEvent.JOIN_REQUEST, async ({ roomId, username }) => {
+		try {
+			// Check if username exists in the room
+			const existingUser = await UserSession.findOne({ roomId, username })
+			if (existingUser) {
+				io.to(socket.id).emit(SocketEvent.USERNAME_EXISTS)
+				return
+			}
 
-		const user = {
-			username,
-			roomId,
-			status: USER_CONNECTION_STATUS.ONLINE,
-			cursorPosition: 0,
-			typing: false,
-			socketId: socket.id,
-			currentFile: null,
+			const user = {
+				username,
+				roomId,
+				status: USER_CONNECTION_STATUS.ONLINE,
+				cursorPosition: 0,
+				typing: false,
+				socketId: socket.id,
+				currentFile: null,
+			}
+
+			// Store user session in MongoDB
+			await UserSession.create(user)
+
+			socket.join(roomId)
+			socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
+			const users = await getUsersInRoom(roomId)
+			io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+		} catch (error) {
+			console.error('Error in JOIN_REQUEST:', error)
+			io.to(socket.id).emit('error', { message: 'Failed to join room' })
 		}
-		userSocketMap.push(user)
-		socket.join(roomId)
-		socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
-		const users = getUsersInRoom(roomId)
-		io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
 	})
 
-	socket.on("disconnecting", () => {
-		const user = getUserBySocketId(socket.id)
-		if (!user) return
-		const roomId = user.roomId
-		socket.broadcast
-			.to(roomId)
-			.emit(SocketEvent.USER_DISCONNECTED, { user })
-		userSocketMap = userSocketMap.filter((u) => u.socketId !== socket.id)
-		socket.leave(roomId)
+	socket.on("disconnecting", async () => {
+		try {
+			const user = await getUserBySocketId(socket.id)
+			if (!user) return
+
+			const roomId = user.roomId
+			socket.broadcast.to(roomId).emit(SocketEvent.USER_DISCONNECTED, { user })
+			
+			// Remove user session from MongoDB
+			await UserSession.deleteOne({ socketId: socket.id })
+			
+			socket.leave(roomId)
+		} catch (error) {
+			console.error('Error in disconnecting:', error)
+		}
 	})
 
 	// Handle file actions
@@ -177,28 +208,32 @@ io.on("connection", (socket) => {
 	})
 
 	// Handle user status
-	socket.on(SocketEvent.USER_OFFLINE, ({ socketId }) => {
-		userSocketMap = userSocketMap.map((user) => {
-			if (user.socketId === socketId) {
-				return { ...user, status: USER_CONNECTION_STATUS.OFFLINE }
-			}
-			return user
-		})
-		const roomId = getRoomId(socketId)
-		if (!roomId) return
-		socket.broadcast.to(roomId).emit(SocketEvent.USER_OFFLINE, { socketId })
+	socket.on(SocketEvent.USER_OFFLINE, async ({ socketId }) => {
+		try {
+			await UserSession.updateOne(
+				{ socketId },
+				{ $set: { status: USER_CONNECTION_STATUS.OFFLINE } }
+			)
+			const roomId = await getRoomId(socketId)
+			if (!roomId) return
+			socket.broadcast.to(roomId).emit(SocketEvent.USER_OFFLINE, { socketId })
+		} catch (error) {
+			console.error('Error in USER_OFFLINE:', error)
+		}
 	})
 
-	socket.on(SocketEvent.USER_ONLINE, ({ socketId }) => {
-		userSocketMap = userSocketMap.map((user) => {
-			if (user.socketId === socketId) {
-				return { ...user, status: USER_CONNECTION_STATUS.ONLINE }
-			}
-			return user
-		})
-		const roomId = getRoomId(socketId)
-		if (!roomId) return
-		socket.broadcast.to(roomId).emit(SocketEvent.USER_ONLINE, { socketId })
+	socket.on(SocketEvent.USER_ONLINE, async ({ socketId }) => {
+		try {
+			await UserSession.updateOne(
+				{ socketId },
+				{ $set: { status: USER_CONNECTION_STATUS.ONLINE } }
+			)
+			const roomId = await getRoomId(socketId)
+			if (!roomId) return
+			socket.broadcast.to(roomId).emit(SocketEvent.USER_ONLINE, { socketId })
+		} catch (error) {
+			console.error('Error in USER_ONLINE:', error)
+		}
 	})
 
 	// Handle chat actions
@@ -211,30 +246,34 @@ io.on("connection", (socket) => {
 	})
 
 	// Handle cursor position
-	socket.on(SocketEvent.TYPING_START, ({ cursorPosition }) => {
-		userSocketMap = userSocketMap.map((user) => {
-			if (user.socketId === socket.id) {
-				return { ...user, typing: true, cursorPosition }
-			}
-			return user
-		})
-		const user = getUserBySocketId(socket.id)
-		if (!user) return
-		const roomId = user.roomId
-		socket.broadcast.to(roomId).emit(SocketEvent.TYPING_START, { user })
+	socket.on(SocketEvent.TYPING_START, async ({ cursorPosition }) => {
+		try {
+			await UserSession.updateOne(
+				{ socketId: socket.id },
+				{ $set: { typing: true, cursorPosition } }
+			)
+			const user = await getUserBySocketId(socket.id)
+			if (!user) return
+			const roomId = user.roomId
+			socket.broadcast.to(roomId).emit(SocketEvent.TYPING_START, { user })
+		} catch (error) {
+			console.error('Error in TYPING_START:', error)
+		}
 	})
 
-	socket.on(SocketEvent.TYPING_PAUSE, () => {
-		userSocketMap = userSocketMap.map((user) => {
-			if (user.socketId === socket.id) {
-				return { ...user, typing: false }
-			}
-			return user
-		})
-		const user = getUserBySocketId(socket.id)
-		if (!user) return
-		const roomId = user.roomId
-		socket.broadcast.to(roomId).emit(SocketEvent.TYPING_PAUSE, { user })
+	socket.on(SocketEvent.TYPING_PAUSE, async () => {
+		try {
+			await UserSession.updateOne(
+				{ socketId: socket.id },
+				{ $set: { typing: false } }
+			)
+			const user = await getUserBySocketId(socket.id)
+			if (!user) return
+			const roomId = user.roomId
+			socket.broadcast.to(roomId).emit(SocketEvent.TYPING_PAUSE, { user })
+		} catch (error) {
+			console.error('Error in TYPING_PAUSE:', error)
+		}
 	})
 
 	socket.on(SocketEvent.REQUEST_DRAWING, () => {
