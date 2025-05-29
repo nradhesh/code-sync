@@ -8,6 +8,7 @@ import { Server } from "socket.io"
 import path from "path"
 import { connectDB } from "./config/db"
 import { UserSession } from "./models/UserSession"
+import { Types } from 'mongoose'
 
 dotenv.config()
 
@@ -340,6 +341,146 @@ app.get('/active-users', async (req: Request, res: Response) => {
 	} catch (error) {
 		console.error('Error fetching active users:', error);
 		res.status(500).json({ error: 'Failed to fetch active users' });
+	}
+});
+
+// API Routes for User Management
+// Get all users
+app.get('/api/users', async (req: Request, res: Response) => {
+	try {
+		const users = await UserSession.find().lean();
+		console.log('Fetching all users:', users);
+		res.json({ 
+			success: true,
+			count: users.length,
+			data: users 
+		});
+	} catch (error) {
+		console.error('Error fetching users:', error);
+		res.status(500).json({ 
+			success: false,
+			error: 'Failed to fetch users' 
+		});
+	}
+});
+
+// Get user by ID
+app.get('/api/users/:id', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		
+		// Validate if the ID is a valid MongoDB ObjectId
+		if (!Types.ObjectId.isValid(id)) {
+			return res.status(400).json({
+				success: false,
+				error: 'Invalid user ID format'
+			});
+		}
+
+		const user = await UserSession.findById(id).lean();
+		
+		if (!user) {
+			return res.status(404).json({
+				success: false,
+				error: 'User not found'
+			});
+		}
+
+		console.log('Fetching user by ID:', user);
+		res.json({
+			success: true,
+			data: user
+		});
+	} catch (error) {
+		console.error('Error fetching user:', error);
+		res.status(500).json({
+			success: false,
+			error: 'Failed to fetch user'
+		});
+	}
+});
+
+// Delete user by ID
+app.delete('/api/users/:id', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+
+		// Validate if the ID is a valid MongoDB ObjectId
+		if (!Types.ObjectId.isValid(id)) {
+			return res.status(400).json({
+				success: false,
+				error: 'Invalid user ID format'
+			});
+		}
+
+		const deletedUser = await UserSession.findByIdAndDelete(id).lean();
+		
+		if (!deletedUser) {
+			return res.status(404).json({
+				success: false,
+				error: 'User not found'
+			});
+		}
+
+		console.log('Deleted user:', deletedUser);
+		res.json({
+			success: true,
+			message: 'User deleted successfully',
+			data: deletedUser
+		});
+	} catch (error) {
+		console.error('Error deleting user:', error);
+		res.status(500).json({
+			success: false,
+			error: 'Failed to delete user'
+		});
+	}
+});
+
+// Update user by ID
+app.patch('/api/users/:id', async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		const updates = req.body;
+
+		// Validate if the ID is a valid MongoDB ObjectId
+		if (!Types.ObjectId.isValid(id)) {
+			return res.status(400).json({
+				success: false,
+				error: 'Invalid user ID format'
+			});
+		}
+
+		// Remove any fields that shouldn't be updated
+		delete updates._id;
+		delete updates.socketId; // Prevent socketId from being changed
+		delete updates.createdAt;
+		delete updates.updatedAt;
+
+		const updatedUser = await UserSession.findByIdAndUpdate(
+			id,
+			{ $set: updates },
+			{ new: true, runValidators: true }
+		).lean();
+
+		if (!updatedUser) {
+			return res.status(404).json({
+				success: false,
+				error: 'User not found'
+			});
+		}
+
+		console.log('Updated user:', updatedUser);
+		res.json({
+			success: true,
+			data: updatedUser
+		});
+	} catch (error) {
+		console.error('Error updating user:', error);
+		res.status(500).json({
+			success: false,
+			error: 'Failed to update user'
+		});
 	}
 });
 
