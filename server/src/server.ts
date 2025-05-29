@@ -9,6 +9,7 @@ import path from "path"
 import { connectDB } from "./config/db"
 import { UserSession } from "./models/UserSession"
 import { Types } from 'mongoose'
+import { Room } from './models/Room'
 
 dotenv.config()
 
@@ -480,6 +481,263 @@ app.patch('/api/users/:id', async (req: Request, res: Response) => {
 		res.status(500).json({
 			success: false,
 			error: 'Failed to update user'
+		});
+	}
+});
+
+// Room Management Endpoints
+// 1. Create a new room
+app.post('/api/rooms', async (req: Request, res: Response) => {
+	try {
+		const { name, description, createdBy } = req.body;
+		
+		// Generate a unique roomId
+		const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		
+		const room = await Room.create({
+			roomId,
+			name,
+			description,
+			createdBy,
+			lastActivity: new Date()
+		});
+
+		console.log('New room created:', room);
+		
+		res.status(201).json({
+			success: true,
+			data: room
+		});
+	} catch (error) {
+		console.error('Error creating room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to create room' 
+		});
+	}
+});
+
+// 2. Get all rooms with user counts
+app.get('/api/rooms', async (req: Request, res: Response) => {
+	try {
+		const rooms = await Room.aggregate([
+			{
+				$lookup: {
+					from: 'usersessions', // collection name
+					localField: 'roomId',
+					foreignField: 'roomId',
+					as: 'users'
+				}
+			},
+			{
+				$project: {
+					_id: 1,
+					roomId: 1,
+					name: 1,
+					description: 1,
+					createdAt: 1,
+					updatedAt: 1,
+					isActive: 1,
+					createdBy: 1,
+					userCount: { $size: '$users' },
+					onlineUsers: {
+						$size: {
+							$filter: {
+								input: '$users',
+								as: 'user',
+								cond: { $eq: ['$$user.status', 'online'] }
+							}
+						}
+					},
+					lastActivity: 1
+				}
+			},
+			{ $sort: { lastActivity: -1 } }
+		]);
+
+		res.json({
+			success: true,
+			count: rooms.length,
+			data: rooms
+		});
+	} catch (error) {
+		console.error('Error fetching rooms:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to fetch rooms' 
+		});
+	}
+});
+
+// 3. Get room details by ID
+app.get('/api/rooms/:roomId', async (req: Request, res: Response) => {
+	try {
+		const { roomId } = req.params;
+		
+		const room = await Room.findOne({ roomId });
+		if (!room) {
+			return res.status(404).json({
+				success: false,
+				error: 'Room not found'
+			});
+		}
+
+		// Get users in this room
+		const users = await UserSession.find({ roomId }).lean();
+		
+		res.json({
+			success: true,
+			data: {
+				...room.toObject(),
+				users,
+				userCount: users.length,
+				onlineUsers: users.filter(u => u.status === 'online').length
+			}
+		});
+	} catch (error) {
+		console.error('Error fetching room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to fetch room details' 
+		});
+	}
+});
+
+// 4. Update room details
+app.patch('/api/rooms/:roomId', async (req: Request, res: Response) => {
+	try {
+		const { roomId } = req.params;
+		const { name, description, isActive } = req.body;
+
+		const room = await Room.findOneAndUpdate(
+			{ roomId },
+			{ 
+				$set: { 
+					...(name && { name }),
+					...(description && { description }),
+					...(isActive !== undefined && { isActive }),
+					lastActivity: new Date()
+				}
+			},
+			{ new: true }
+		);
+
+		if (!room) {
+			return res.status(404).json({
+				success: false,
+				error: 'Room not found'
+			});
+		}
+
+		res.json({
+			success: true,
+			data: room
+		});
+	} catch (error) {
+		console.error('Error updating room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to update room' 
+		});
+	}
+});
+
+// 5. Delete room
+app.delete('/api/rooms/:roomId', async (req: Request, res: Response) => {
+	try {
+		const { roomId } = req.params;
+
+		// First, remove all users from this room
+		await UserSession.updateMany(
+			{ roomId },
+			{ 
+				$set: { 
+					roomId: null,
+					status: 'offline'
+				}
+			}
+		);
+
+		// Then delete the room
+		const room = await Room.findOneAndDelete({ roomId });
+
+		if (!room) {
+			return res.status(404).json({
+				success: false,
+				error: 'Room not found'
+			});
+		}
+
+		// Notify all users in the room that it's been deleted
+		io.to(roomId).emit('room_deleted', {
+			roomId,
+			message: 'Room has been deleted'
+		});
+
+		res.json({
+			success: true,
+			message: 'Room deleted successfully',
+			data: room
+		});
+	} catch (error) {
+		console.error('Error deleting room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to delete room' 
+		});
+	}
+});
+
+// 6. Get room statistics
+app.get('/api/rooms/:roomId/stats', async (req: Request, res: Response) => {
+	try {
+		const { roomId } = req.params;
+
+		const stats = await UserSession.aggregate([
+			{ $match: { roomId } },
+			{
+				$group: {
+					_id: null,
+					totalUsers: { $sum: 1 },
+					onlineUsers: {
+						$sum: { $cond: [{ $eq: ['$status', 'online'] }, 1, 0] }
+					},
+					typingUsers: {
+						$sum: { $cond: [{ $eq: ['$typing', true] }, 1, 0] }
+					},
+					lastActivity: { $max: '$updatedAt' }
+				}
+			}
+		]);
+
+		const room = await Room.findOne({ roomId });
+		if (!room) {
+			return res.status(404).json({
+				success: false,
+				error: 'Room not found'
+			});
+		}
+
+		res.json({
+			success: true,
+			data: {
+				roomId,
+				name: room.name,
+				createdBy: room.createdBy,
+				createdAt: room.createdAt,
+				...(stats[0] || {
+					totalUsers: 0,
+					onlineUsers: 0,
+					typingUsers: 0,
+					lastActivity: room.lastActivity
+				})
+			}
+		});
+	} catch (error) {
+		console.error('Error fetching room stats:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to fetch room statistics' 
 		});
 	}
 });
