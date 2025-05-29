@@ -12,7 +12,11 @@ import { UserSession } from "./models/UserSession"
 dotenv.config()
 
 // Connect to MongoDB
-connectDB()
+connectDB().then(() => {
+	console.log('MongoDB connection established successfully');
+}).catch((error) => {
+	console.error('Failed to connect to MongoDB:', error);
+});
 
 const app = express()
 
@@ -78,9 +82,11 @@ io.on("connection", async (socket) => {
 	// Handle user actions
 	socket.on(SocketEvent.JOIN_REQUEST, async ({ roomId, username }) => {
 		try {
+			console.log(`Attempting to join room: ${roomId} with username: ${username}`);
 			// Check if username exists in the room
 			const existingUser = await UserSession.findOne({ roomId, username })
 			if (existingUser) {
+				console.log(`Username ${username} already exists in room ${roomId}`);
 				io.to(socket.id).emit(SocketEvent.USERNAME_EXISTS)
 				return
 			}
@@ -95,12 +101,15 @@ io.on("connection", async (socket) => {
 				currentFile: null,
 			}
 
+			console.log('Creating new user session:', user);
 			// Store user session in MongoDB
-			await UserSession.create(user)
+			const createdUser = await UserSession.create(user)
+			console.log('User session created successfully:', createdUser);
 
 			socket.join(roomId)
 			socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
 			const users = await getUsersInRoom(roomId)
+			console.log(`Current users in room ${roomId}:`, users);
 			io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
 		} catch (error) {
 			console.error('Error in JOIN_REQUEST:', error)
@@ -110,14 +119,20 @@ io.on("connection", async (socket) => {
 
 	socket.on("disconnecting", async () => {
 		try {
+			console.log(`User disconnecting with socket ID: ${socket.id}`);
 			const user = await getUserBySocketId(socket.id)
-			if (!user) return
+			if (!user) {
+				console.log(`No user found for socket ID: ${socket.id}`);
+				return
+			}
 
+			console.log('Removing user session:', user);
 			const roomId = user.roomId
 			socket.broadcast.to(roomId).emit(SocketEvent.USER_DISCONNECTED, { user })
 			
 			// Remove user session from MongoDB
-			await UserSession.deleteOne({ socketId: socket.id })
+			const deleteResult = await UserSession.deleteOne({ socketId: socket.id })
+			console.log('User session deletion result:', deleteResult);
 			
 			socket.leave(roomId)
 		} catch (error) {
@@ -315,6 +330,17 @@ app.get("/", (req: Request, res: Response) => {
 
 app.get('/health', (req, res) => {
 	res.status(200).json({ status: 'ok' });
+});
+
+app.get('/active-users', async (req: Request, res: Response) => {
+	try {
+		const users = await UserSession.find().lean();
+		console.log('Current active users:', users);
+		res.json({ users });
+	} catch (error) {
+		console.error('Error fetching active users:', error);
+		res.status(500).json({ error: 'Failed to fetch active users' });
+	}
 });
 
 server.listen(PORT, () => {
