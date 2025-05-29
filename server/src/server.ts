@@ -139,8 +139,8 @@ io.on("connection", async (socket) => {
 
 	socket.on(
 		SocketEvent.DIRECTORY_CREATED,
-		({ parentDirId, newDirectory }) => {
-			const roomId = getRoomId(socket.id)
+		async ({ parentDirId, newDirectory }) => {
+			const roomId = await getRoomId(socket.id)
 			if (!roomId) return
 			socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_CREATED, {
 				parentDirId,
@@ -149,8 +149,8 @@ io.on("connection", async (socket) => {
 		}
 	)
 
-	socket.on(SocketEvent.DIRECTORY_UPDATED, ({ dirId, children }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.DIRECTORY_UPDATED, async ({ dirId, children }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_UPDATED, {
 			dirId,
@@ -158,8 +158,8 @@ io.on("connection", async (socket) => {
 		})
 	})
 
-	socket.on(SocketEvent.DIRECTORY_RENAMED, ({ dirId, newName }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.DIRECTORY_RENAMED, async ({ dirId, newName }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_RENAMED, {
 			dirId,
@@ -167,24 +167,24 @@ io.on("connection", async (socket) => {
 		})
 	})
 
-	socket.on(SocketEvent.DIRECTORY_DELETED, ({ dirId }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.DIRECTORY_DELETED, async ({ dirId }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.DIRECTORY_DELETED, { dirId })
 	})
 
-	socket.on(SocketEvent.FILE_CREATED, ({ parentDirId, newFile }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.FILE_CREATED, async ({ parentDirId, newFile }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.FILE_CREATED, { parentDirId, newFile })
 	})
 
-	socket.on(SocketEvent.FILE_UPDATED, ({ fileId, newContent }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.FILE_UPDATED, async ({ fileId, newContent }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
 			fileId,
@@ -192,8 +192,8 @@ io.on("connection", async (socket) => {
 		})
 	})
 
-	socket.on(SocketEvent.FILE_RENAMED, ({ fileId, newName }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.FILE_RENAMED, async ({ fileId, newName }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_RENAMED, {
 			fileId,
@@ -201,8 +201,8 @@ io.on("connection", async (socket) => {
 		})
 	})
 
-	socket.on(SocketEvent.FILE_DELETED, ({ fileId }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.FILE_DELETED, async ({ fileId }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_DELETED, { fileId })
 	})
@@ -237,8 +237,8 @@ io.on("connection", async (socket) => {
 	})
 
 	// Handle chat actions
-	socket.on(SocketEvent.SEND_MESSAGE, ({ message }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.SEND_MESSAGE, async ({ message }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast
 			.to(roomId)
@@ -276,8 +276,8 @@ io.on("connection", async (socket) => {
 		}
 	})
 
-	socket.on(SocketEvent.REQUEST_DRAWING, () => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.REQUEST_DRAWING, async () => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast
 			.to(roomId)
@@ -290,8 +290,8 @@ io.on("connection", async (socket) => {
 			.emit(SocketEvent.SYNC_DRAWING, { drawingData })
 	})
 
-	socket.on(SocketEvent.DRAWING_UPDATE, ({ snapshot }) => {
-		const roomId = getRoomId(socket.id)
+	socket.on(SocketEvent.DRAWING_UPDATE, async ({ snapshot }) => {
+		const roomId = await getRoomId(socket.id)
 		if (!roomId) return
 		socket.broadcast.to(roomId).emit(SocketEvent.DRAWING_UPDATE, {
 			snapshot,
