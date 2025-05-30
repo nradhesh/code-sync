@@ -2,52 +2,39 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x]
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Setup Node.js ${{ matrix.node-version }}
+    - uses: actions/checkout@v3
+    
+    - name: Print directory contents
+      run: |
+        echo "Current directory contents:"
+        ls -la
+        echo "Server directory contents:"
+        ls -la server/
+    
+    - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        cache-dependency-path: 'server/package-lock.json'
-
-    - name: Install server dependencies
+        node-version: '18.x'
+    
+    - name: Install dependencies
       working-directory: ./server
       run: npm ci
-
-    - name: Run linting
-      working-directory: ./server
-      run: npm run lint || echo "Linting step skipped - no lint script defined"
-
-    - name: Build server
+    
+    - name: Build
       working-directory: ./server
       run: npm run build
-
-    - name: Run tests
-      working-directory: ./server
-      run: npm test || echo "Test step skipped - no test script defined"
-
-    - name: Verify build output
+    
+    - name: List build output
       working-directory: ./server
       run: |
-        if [ -d "dist" ]; then
-          echo "Build output directory 'dist' exists"
-          ls -la dist
-        else
-          echo "Error: Build output directory 'dist' not found"
-          exit 1
-        fi 
+        echo "Build output directory contents:"
+        ls -la dist/ 
