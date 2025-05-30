@@ -1,4 +1,4 @@
-name: Node.js CI
+name: Full Stack CI
 
 on:
   push:
@@ -7,34 +7,85 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build:
+  server-build:
+    name: Server Build
     runs-on: ubuntu-latest
-
+    
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Print directory contents
-      run: |
-        echo "Current directory contents:"
-        ls -la
-        echo "Server directory contents:"
-        ls -la server/
     
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: 'server/package-lock.json'
     
-    - name: Install dependencies
+    - name: Install server dependencies
       working-directory: ./server
       run: npm ci
     
-    - name: Build
+    - name: Build server
       working-directory: ./server
       run: npm run build
     
-    - name: List build output
+    - name: Verify server build
       working-directory: ./server
       run: |
-        echo "Build output directory contents:"
-        ls -la dist/ 
+        echo "Server build output:"
+        ls -la dist/
+        if [ ! -d "dist" ]; then
+          echo "Error: Server build failed - dist directory not found"
+          exit 1
+        fi
+
+  client-build:
+    name: Client Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: 'client/package-lock.json'
+    
+    - name: Install client dependencies
+      working-directory: ./client
+      run: npm ci
+    
+    - name: Build client
+      working-directory: ./client
+      run: npm run build
+    
+    - name: Verify client build
+      working-directory: ./client
+      run: |
+        echo "Client build output:"
+        ls -la dist/
+        if [ ! -d "dist" ]; then
+          echo "Error: Client build failed - dist directory not found"
+          exit 1
+        fi
+
+  # Optional: Add a job that runs after both builds succeed
+  notify:
+    name: Notify Build Status
+    needs: [server-build, client-build]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Check build status
+      run: |
+        echo "Server build status: ${{ needs.server-build.result }}"
+        echo "Client build status: ${{ needs.client-build.result }}"
+        if [ "${{ needs.server-build.result }}" != "success" ] || [ "${{ needs.client-build.result }}" != "success" ]; then
+          echo "::error::One or more builds failed. Check the logs for details."
+          exit 1
+        else
+          echo "All builds passed successfully!"
+        fi 
