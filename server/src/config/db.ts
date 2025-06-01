@@ -3,35 +3,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-let isConnected = false;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://radheshshetty0407:%23Shetty222@cluster0.nvc9ek7.mongodb.net/chat-app?retryWrites=true&w=majority';
 
 export const connectDB = async () => {
-    if (isConnected) {
-        console.log('Using existing database connection');
-        return;
-    }
-
     try {
-        const db = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/code-sync');
-        isConnected = db.connections[0].readyState === 1;
+        await mongoose.connect(MONGODB_URI);
         console.log('MongoDB connected successfully');
     } catch (error) {
         console.error('MongoDB connection error:', error);
         process.exit(1);
-    }
-};
-
-export const disconnectDB = async () => {
-    if (!isConnected) {
-        return;
-    }
-
-    try {
-        await mongoose.connection.close();
-        isConnected = false;
-        console.log('MongoDB disconnected successfully');
-    } catch (error) {
-        console.error('Error disconnecting from MongoDB:', error);
     }
 };
 
@@ -46,11 +26,16 @@ mongoose.connection.on('error', (err) => {
 
 mongoose.connection.on('disconnected', () => {
     console.log('Mongoose disconnected from MongoDB');
-    isConnected = false;
 });
 
-// Handle process termination
+// Handle application termination
 process.on('SIGINT', async () => {
-    await disconnectDB();
-    process.exit(0);
+    try {
+        await mongoose.connection.close();
+        console.log('Mongoose connection closed through app termination');
+        process.exit(0);
+    } catch (err) {
+        console.error('Error during mongoose connection closure:', err);
+        process.exit(1);
+    }
 }); 

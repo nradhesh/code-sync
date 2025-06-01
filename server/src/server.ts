@@ -10,7 +10,6 @@ import { connectDB } from "./config/db"
 import { UserSession } from "./models/UserSession"
 import { Types } from 'mongoose'
 import { Room } from './models/Room'
-import mongoose from "mongoose"
 
 dotenv.config()
 
@@ -21,7 +20,7 @@ connectDB().then(() => {
 	console.error('Failed to connect to MongoDB:', error);
 });
 
-export const app = express()
+const app = express()
 
 app.use(express.json())
 
@@ -743,26 +742,6 @@ app.get('/api/rooms/:roomId/stats', async (req: Request, res: Response) => {
 	}
 });
 
-// Only start the server if we're not in a test environment
-if (process.env.NODE_ENV !== 'test') {
-	const server = app.listen(PORT, () => {
-		console.log(`Listening on port ${PORT}`);
-	});
-
-	// Handle server shutdown
-	process.on('SIGTERM', async () => {
-		console.log('SIGTERM signal received: closing HTTP server');
-		await new Promise<void>((resolve) => {
-			server.close(() => {
-				console.log('HTTP server closed');
-				resolve();
-			});
-		});
-		await mongoose.connection.close();
-		console.log('MongoDB connection closed');
-		process.exit(0);
-	});
-}
-
-// Export for testing
-export default app;
+server.listen(PORT, () => {
+	console.log(`Listening on port ${PORT}`)
+})

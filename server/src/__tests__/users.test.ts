@@ -2,19 +2,22 @@ import request from 'supertest';
 import { app } from '../server';
 import mongoose from 'mongoose';
 import { UserSession } from '../models/UserSession';
-import { connectDB, disconnectDB } from '../config/db';
 
+// Clean up the database before and after tests
 beforeAll(async () => {
-    await connectDB();
+  // Connect to a test database
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/code-sync-test');
 });
 
 afterAll(async () => {
-    await UserSession.deleteMany({});
-    await disconnectDB();
+  // Clean up and close the connection
+  await UserSession.deleteMany({});
+  await mongoose.connection.close();
 });
 
 beforeEach(async () => {
-    await UserSession.deleteMany({});
+  // Clear the users collection before each test
+  await UserSession.deleteMany({});
 });
 
 describe('User Endpoints', () => {
