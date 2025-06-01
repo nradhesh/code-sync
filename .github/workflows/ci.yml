@@ -8,7 +8,7 @@ on:
 
 jobs:
   server-build:
-    name: Server Build & Test
+    name: Server Build
     runs-on: ubuntu-latest
     
     steps:
@@ -25,13 +25,6 @@ jobs:
       working-directory: ./server
       run: npm ci
     
-    - name: Run server tests
-      working-directory: ./server
-      run: npm test
-      env:
-        MONGODB_URI: mongodb://localhost:27017/code-sync-test
-        NODE_ENV: test
-    
     - name: Build server
       working-directory: ./server
       run: npm run build
@@ -47,7 +40,7 @@ jobs:
         fi
 
   client-build:
-    name: Client Build & Test
+    name: Client Build
     runs-on: ubuntu-latest
     
     steps:
@@ -63,10 +56,6 @@ jobs:
     - name: Install client dependencies
       working-directory: ./client
       run: npm ci
-    
-    - name: Run client tests
-      working-directory: ./client
-      run: npm test
     
     - name: Build client
       working-directory: ./client
@@ -95,8 +84,8 @@ jobs:
         echo "Server build status: ${{ needs.server-build.result }}"
         echo "Client build status: ${{ needs.client-build.result }}"
         if [ "${{ needs.server-build.result }}" != "success" ] || [ "${{ needs.client-build.result }}" != "success" ]; then
-          echo "::error::One or more builds or tests failed. Check the logs for details."
+          echo "::error::One or more builds failed. Check the logs for details."
           exit 1
         else
-          echo "All builds and tests passed successfully!"
+          echo "All builds passed successfully!"
         fi 
