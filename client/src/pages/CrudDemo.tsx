@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-const API_BASE = "http://localhost:10000/api"; // Change if your server runs elsewhere
+const API_BASE = "https://code-sync-production-5d6d.up.railway.app/api"; // Change if your server runs elsewhere
 
 // Type definitions for User and Room
 interface User {
