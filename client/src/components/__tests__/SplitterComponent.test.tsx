@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import SplitterComponent from '../SplitterComponent';
 import { ViewContextProvider } from '@/context/ViewContext';
-import useWindowDimensions from '@/hooks/useWindowDimensions';
+// import useWindowDimensions from '@/hooks/useWindowDimensions';
 
 // Mock the hooks
 vi.mock('@/hooks/useLocalStorage', () => ({

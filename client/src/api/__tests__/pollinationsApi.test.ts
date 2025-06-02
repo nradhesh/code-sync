@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import pollinationsApi from '../pollinationsApi';
-import axios from 'axios';
+// import axios from 'axios';
 
 vi.mock('axios', () => ({
     default: {
