@@ -22,7 +22,11 @@ const RoomSchema = new Schema<IRoom>({
     createdBy: { type: String, required: true },
     userCount: { type: Number, default: 0 },
     lastActivity: { type: Date, default: Date.now }
-});
+},
+{ 
+        timestamps: true,
+        collection: 'rooms'
+    });
 
 // Update timestamps on save
 RoomSchema.pre('save', function(next) {
@@ -30,4 +34,4 @@ RoomSchema.pre('save', function(next) {
     next();
 });
 
-export const Room = mongoose.model<IRoom>('Room', RoomSchema , 'rooms'); 
+export const Room = mongoose.model<IRoom>('Room', RoomSchema ); 
