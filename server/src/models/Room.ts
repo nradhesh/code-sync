@@ -30,4 +30,4 @@ RoomSchema.pre('save', function(next) {
     next();
 });
 
-export const Room = mongoose.model<IRoom>('Room', RoomSchema); 
+export const Room = mongoose.model<IRoom>('Room', RoomSchema , 'rooms'); 
