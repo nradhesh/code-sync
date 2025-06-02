@@ -167,7 +167,7 @@ const CrudDemo = () => {
             onChange={(e) =>
               setUserState((prev) => ({ ...prev, itemId: e.target.value }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
           <button
             onClick={() => fetchItem(setUserState, "users", userState.itemId)}
@@ -193,7 +193,7 @@ const CrudDemo = () => {
                 itemData: { ...prev.itemData, name: e.target.value },
               }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
           <input
             type="text"
@@ -205,7 +205,7 @@ const CrudDemo = () => {
                 itemData: { ...prev.itemData, roomId: e.target.value },
               }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
         </div>
         <div className="space-x-2 mt-2">
@@ -256,7 +256,7 @@ const CrudDemo = () => {
             onChange={(e) =>
               setRoomState((prev) => ({ ...prev, itemId: e.target.value }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
           <button
             onClick={() => fetchItem(setRoomState, "rooms", roomState.itemId)}
@@ -282,7 +282,7 @@ const CrudDemo = () => {
                 itemData: { ...prev.itemData, name: e.target.value },
               }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
           <input
             type="text"
@@ -294,7 +294,7 @@ const CrudDemo = () => {
                 itemData: { ...prev.itemData, description: e.target.value },
               }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
           <input
             type="text"
@@ -306,7 +306,7 @@ const CrudDemo = () => {
                 itemData: { ...prev.itemData, createdBy: e.target.value },
               }))
             }
-            className="border p-2"
+className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
           />
         </div>
         <div className="space-x-2 mt-2">
