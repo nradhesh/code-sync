@@ -488,34 +488,33 @@ app.patch('/api/users/:id', async (req: Request, res: Response) => {
 // Room Management Endpoints
 // 1. Create a new room
 app.post('/api/rooms', async (req: Request, res: Response) => {
-    try {
-        console.log('Create Room Request Body:', req.body); // Log request body
-        const { name, description, createdBy } = req.body;
+	try {
+		const { name, description, createdBy } = req.body;
+		
+		// Generate a unique roomId
+		const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		
+		const room = await Room.create({
+			roomId,
+			name,
+			description,
+			createdBy,
+			lastActivity: new Date()
+		});
 
-        // Generate a unique roomId
-        const roomId = `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        const room = await Room.create({
-            roomId,
-            name,
-            description,
-            createdBy,
-            lastActivity: new Date()
-        });
-
-        console.log('New room created:', room); // Log created room
-
-        res.status(201).json({
-            success: true,
-            data: room
-        });
-    } catch (error) {
-        console.error('Error creating room:', error); // Log error
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to create room' 
-        });
-    }
+		console.log('New room created:', room);
+		
+		res.status(201).json({
+			success: true,
+			data: room
+		});
+	} catch (error) {
+		console.error('Error creating room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to create room' 
+		});
+	}
 });
 
 // 2. Get all rooms with user counts
@@ -606,90 +605,87 @@ app.get('/api/rooms/:roomId', async (req: Request, res: Response) => {
 
 // 4. Update room details
 app.patch('/api/rooms/:roomId', async (req: Request, res: Response) => {
-    try {
-        console.log('Update Room Request Params:', req.params); // Log request params
-        console.log('Update Room Request Body:', req.body); // Log request body
+	try {
+		const { roomId } = req.params;
+		const { name, description, isActive } = req.body;
 
-        const { roomId } = req.params;
-        const { name, description, isActive } = req.body;
+		const room = await Room.findOneAndUpdate(
+			{ roomId },
+			{ 
+				$set: { 
+					...(name && { name }),
+					...(description && { description }),
+					...(isActive !== undefined && { isActive }),
+					lastActivity: new Date()
+				}
+			},
+			{ new: true }
+		);
 
-        const room = await Room.findOneAndUpdate(
-            { roomId },
-            { 
-                $set: { 
-                    ...(name && { name }),
-                    ...(description && { description }),
-                    ...(isActive !== undefined && { isActive }),
-                    lastActivity: new Date()
-                }
-            },
-            { new: true }
-        );
+		if (!room) {
+			return res.status(404).json({
+				success: false,
+				error: 'Room not found'
+			});
+		}
 
-        if (!room) {
-            console.error('Room not found for update:', roomId); // Log missing room
-            return res.status(404).json({
-                success: false,
-                error: 'Room not found'
-            });
-        }
-
-        console.log('Updated room:', room); // Log updated room
-        res.json({
-            success: true,
-            data: room
-        });
-    } catch (error) {
-        console.error('Error updating room:', error); // Log error
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to update room' 
-        });
-    }
+		res.json({
+			success: true,
+			data: room
+		});
+	} catch (error) {
+		console.error('Error updating room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to update room' 
+		});
+	}
 });
 
 // 5. Delete room
 app.delete('/api/rooms/:roomId', async (req: Request, res: Response) => {
-    try {
-        console.log('Delete Room Request Params:', req.params); // Log request params
+	try {
+		const { roomId } = req.params;
 
-        const { roomId } = req.params;
+		// First, remove all users from this room
+		await UserSession.updateMany(
+			{ roomId },
+			{ 
+				$set: { 
+					roomId: null,
+					status: 'offline'
+				}
+			}
+		);
 
-        // First, remove all users from this room
-        await UserSession.updateMany(
-            { roomId },
-            { 
-                $set: { 
-                    roomId: null,
-                    status: 'offline'
-                }
-            }
-        );
+		// Then delete the room
+		const room = await Room.findOneAndDelete({ roomId });
 
-        // Then delete the room
-        const room = await Room.findOneAndDelete({ roomId });
+		if (!room) {
+			return res.status(404).json({
+				success: false,
+				error: 'Room not found'
+			});
+		}
 
-        if (!room) {
-            console.error('Room not found for deletion:', roomId); // Log missing room
-            return res.status(404).json({
-                success: false,
-                error: 'Room not found'
-            });
-        }
+		// Notify all users in the room that it's been deleted
+		io.to(roomId).emit('room_deleted', {
+			roomId,
+			message: 'Room has been deleted'
+		});
 
-        console.log('Deleted room:', room); // Log deleted room
-        res.json({
-            success: true,
-            message: 'Room deleted successfully',
-            data: room
-        });
-    } catch (error) {
-        console.error('Error deleting room:', error); // Log error
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to delete room' 
-        });
-    }
+		res.json({
+			success: true,
+			message: 'Room deleted successfully',
+			data: room
+		});
+	} catch (error) {
+		console.error('Error deleting room:', error);
+		res.status(500).json({ 
+			success: false, 
+			error: 'Failed to delete room' 
+		});
+	}
 });
 
 // 6. Get room statistics
